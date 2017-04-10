@@ -44,30 +44,30 @@ def is_git_dir(d):
             return isfile(headref) or \
                 (os.path.islink(headref) and
                  os.readlink(headref).startswith('refs'))
-        elif isfile(join(d, 'gitdir')) and isfile(join(d, 'commondir')) and isfile(join(d, 'gitfile')):
-            raise WorkTreeRepositoryUnsupported(d)
     return False
 
+def read_gitdir_link(link):
+    try:
+        with open(link) as fp:
+            content = fp.read().rstrip()
+            if not content.startswith('gitdir:'):
+                return None
+
+        path = content.split(':', 1)[1].strip()
+        if not os.path.abspath(path):
+            path = join(dirname(link), path)
+
+        with open(join(path, 'commondir')) as fp:
+            return join(path, fp.read().strip())
+    except (IOError, OSError):
+        pass
+    return None
 
 def find_git_dir(d):
     if is_git_dir(d):
         return d
 
-    try:
-        with open(d) as fp:
-            content = fp.read().rstrip()
-    except (IOError, OSError):
-        # it's probably not a file
-        pass
-    else:
-        if content.startswith('gitdir: '):
-            path = content[8:]
-            if not os.path.isabs(path):
-                path = join(dirname(d), path)
-            return find_git_dir(path)
-    # end handle exception
-    return None
-
+    return read_gitdir_link(d)
 
 def short_to_long(odb, hexsha):
     """:return: long hexadecimal sha1 from the given less-than-40 byte hexsha
